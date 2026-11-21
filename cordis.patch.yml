@@ -1,0 +1,7 @@
+# dsh-model-fingerprint bundle patch: one host row over the Web or Desktop profile.
+# The row name resolves from the profile's own node_modules, where
+# `dsh plugin --profile <profile> add <path>` (or the plugin manager) placed it.
+- insert:
+    - id: model-fingerprint
+      name: 'dsh-model-fingerprint'
+      config: {}

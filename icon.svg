@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Model fingerprint">
+  <rect width="64" height="64" rx="14" fill="#0F172A"/>
+  <g fill="none" stroke="#5EEAD4" stroke-width="2.4" stroke-linecap="round">
+    <path d="M20 44c-3-4-4.5-8.6-4.5-13.3C15.5 21.9 22.9 15 32 15s16.5 6.9 16.5 15.7c0 4.7-1.5 9.3-4.5 13.3"/>
+    <path d="M25 46c-2.6-3.6-4-7.9-4-12.2C21 27.2 25.9 22 32 22s11 5.2 11 11.8c0 4.3-1.4 8.6-4 12.2"/>
+    <path d="M30 48c-1.6-2.6-2.5-5.8-2.5-9.1 0-2.9 2-5.3 4.5-5.3s4.5 2.4 4.5 5.3c0 3.3-.9 6.5-2.5 9.1"/>
+    <path d="M32 18v-4M32 50v3"/>
+  </g>
+  <g fill="#5EEAD4">
+    <circle cx="32" cy="38.9" r="2.1"/>
+  </g>
+</svg>

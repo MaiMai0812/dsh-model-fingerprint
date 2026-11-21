@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Model fingerprint",
+    "description": "A Model fingerprint panel under \"Scheduled tasks\" in the sidebar. Pick one of the models this DSH already has connected, ask it to write ~300 integers between 1 and 355 from the top of its head, then match that reply against a bundled library of 70 models to tell which LLM it really is. Sampling runs through the host llm service — no endpoint or API key — and the job keeps running on the host after you close the page."
+  }
+}
