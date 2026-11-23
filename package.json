@@ -1,8 +1,16 @@
 {
   "name": "dsh-model-fingerprint",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MaiMai0812/dsh-model-fingerprint.git"
+  },
+  "homepage": "https://github.com/MaiMai0812/dsh-model-fingerprint#readme",
+  "bugs": {
+    "url": "https://github.com/MaiMai0812/dsh-model-fingerprint/issues"
+  },
   "description": "模型指纹检测：在这台 DSH 已接入的模型里挑一个，让它随手写下约 300 个整数，与内置的模型参考库比对，判断它到底是哪家的模型。",
   "main": "index.js",
   "exports": {
