@@ -40,6 +40,13 @@ window.__ModuleLoader__.load({
         'pick.useDefault': '用当前对话的模型',
         'pick.current': '当前对话：{name}',
         'pick.error': '读取模型列表失败：{reason}',
+        'scan.button': '重新扫描',
+        'scan.running': '正在扫描…',
+        'scan.done': '已扫描 {count} 个模型，时间 {at}。',
+        'scan.error': '重新扫描失败：{reason}',
+        'scan.hint': '问遍宿主里所有已接入的服务商，取回最新的模型列表。',
+        'scan.at': '模型列表取自 {time}',
+        'scan.cached': '这是上一次的扫描结果，点右上角「重新扫描」可更新。',
         'opt.title': '采样选项',
         'opt.samples': '样本数',
         'opt.samples.one': '1 条',
@@ -130,6 +137,13 @@ window.__ModuleLoader__.load({
         'pick.useDefault': 'Use this conversation’s model',
         'pick.current': 'This conversation: {name}',
         'pick.error': 'Could not load the model list: {reason}',
+        'scan.button': 'Rescan',
+        'scan.running': 'Scanning…',
+        'scan.done': 'Scanned {count} models at {at}.',
+        'scan.error': 'Rescan failed: {reason}',
+        'scan.hint': 'Ask every connected provider on this host and refresh the model list.',
+        'scan.at': 'Model list from {time}',
+        'scan.cached': 'This is the last scan result; use “Rescan” at the top right to refresh it.',
         'opt.title': 'Sampling options',
         'opt.samples': 'Samples',
         'opt.samples.one': '1',
@@ -213,6 +227,9 @@ window.__ModuleLoader__.load({
 @media (width<=767px){.mf_root{padding-inline:20px}}
 .mf_head{margin:0 0 16px;padding-top:28px}
 [data-platform=darwin] .mf_head{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}
+.mf_headrow{display:flex;gap:16px;align-items:flex-start}
+.mf_headtext{flex:1;min-width:0}
+.mf_headrow .mf_btn{flex:none;margin-left:auto;align-self:flex-start}
 .mf_head h2{margin:0 0 6px;font-size:15px;font-weight:600}
 .mf_head p{margin:0;max-width:76ch;color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:1.7}
 .mf_card{margin:0 0 14px;padding:16px 18px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1)}
@@ -282,6 +299,9 @@ window.__ModuleLoader__.load({
 .mf_diagrow{display:flex;gap:10px;justify-content:space-between;font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 .mf_diagrow b{font-weight:500;color:var(--dsw-alias-label-secondary)}
 .mf_ov{margin:12px 0 0;display:flex;flex-direction:column;gap:6px}
+/* 供应商卡片两列排：一行放两个，列宽各占一半；卡片各自按内容高度，短的那张不会被拉长 */
+.mf_ovlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;align-items:start}
+@media (width<=767px){.mf_ovlist{grid-template-columns:minmax(0,1fr)}}
 .mf_group{border:1px solid var(--dsw-alias-border-l1);border-radius:9px;overflow:hidden;background:var(--dsw-alias-bg-layer-2)}
 .mf_ghead{display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;font:inherit;padding:8px 10px;
   background:transparent;border:0;color:var(--dsw-alias-label-primary);cursor:pointer}
@@ -290,8 +310,8 @@ window.__ModuleLoader__.load({
 .mf_ghead .mf_gname{font-size:12.5px;font-weight:600}
 .mf_ghead .mf_gcount{font-size:11.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 .mf_ghead .mf_gcaret{margin-left:auto;font-style:normal;font-size:10px;color:var(--dsw-alias-label-tertiary)}
-.mf_grow{display:flex;gap:10px;align-items:baseline;padding:6px 10px 6px 24px;border-top:1px solid var(--dsw-alias-border-l1);font-size:12px}
-.mf_grow .mf_mname{color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%}
+.mf_grow{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:6px 10px 6px 20px;border-top:1px solid var(--dsw-alias-border-l1);font-size:12px}
+.mf_grow .mf_mname{color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%}
 .mf_grow .mf_mres{margin-left:auto;color:var(--dsw-alias-label-secondary);text-align:right}
 .mf_grow .mf_mres.tested{color:var(--dsw-alias-label-primary)}
 .mf_grow .mf_mres .mf_prob{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
@@ -339,6 +359,21 @@ window.__ModuleLoader__.load({
     function bytesLabel(value) {
       if (!Number.isFinite(value) || value <= 0) return ''
       return value >= 1e6 ? `${(value / 1048576).toFixed(1)} MB` : `${Math.round(value / 1024)} KB`
+    }
+
+    // 传输层的原文是英文的（`fetch failed`、`Failed to fetch`），直接摆给用户看不懂；
+    // 换成一句中文，并把错误码留在后面便于排查。
+    function describeFailure(err) {
+      const message = String((err && err.message) || err || '')
+      const code = (err && err.cause && err.cause.code) || ''
+      if (!message) return ''
+      if (/ENOTFOUND|EAI_AGAIN|DNS/i.test(message)) {
+        return `域名解析不了${code ? `（${code}）` : ''}。`
+      }
+      if (/ECONNREFUSED/i.test(message) || /fetch failed|Failed to fetch|NetworkError/i.test(message)) {
+        return `连不上对方${code ? `（${code}）` : ''}。`
+      }
+      return message
     }
 
     // ------------------------------------------------------------ 组件
@@ -571,7 +606,7 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'mf_ov' },
         search,
-        shown.map(group => {
+        h('div', { className: 'mf_ovlist' }, shown.map(group => {
           // 搜索时默认展开命中组，但仍允许手动收起（只有明确收起过才保持收起）
           const expanded = searching ? open[group.id] !== false : Boolean(open[group.id])
           const tested = group.models.filter(model => model.row).length
@@ -599,7 +634,7 @@ window.__ModuleLoader__.load({
                         h('span', { className: 'mf_gtime' }, clock(model.row.at)))
                     : h('span', { className: 'mf_mres mf_none' }, t('ov.untested')))))
               : null)
-        }))
+        })))
     }
 
     function Page({ ctx, t: bound }) {
@@ -625,6 +660,8 @@ window.__ModuleLoader__.load({
       // 上一次点「清空记录」的时刻：清空之前算出来的结果不该在总览里再冒出来
       const [clearedAt, setClearedAt] = useState(0)
       const [openGroups, setOpenGroups] = useState({})
+      // 目录是上一次扫到的，不是实时的：记一下扫的时间，面板上说清楚这是缓存
+      const [scannedAt, setScannedAt] = useState('')
       const timer = useRef(null)
       const jobRef = useRef(null)
       // 允许同时重试多条：jobId → 卡片下标，一条重试一个定时器
@@ -696,11 +733,21 @@ window.__ModuleLoader__.load({
         }
       }, [])
 
+      // 打开面板时用：只拿上一次扫到的那份目录，不去问宿主，几百毫秒的等待能省掉。
+      // 一份缓存都没有（首次打开、或缓存被清掉）时才先扫一遍，否则选择区没得选。
       const loadCatalog = useCallback(async () => {
         try {
           const body = await api('/catalog', { method: 'GET' })
           const providers = Array.isArray(body.providers) ? body.providers : []
+          // 还从没扫过：把 catalog 留在 null，直接去扫，免得选择区先闪一下「没有模型」
+          if (providers.length === 0 && !body.scanned_at) {
+            return rescanCatalog()
+          }
           setCatalog(providers)
+          setScannedAt(body.scanned_at || '')
+          // 宿主在给目录的同时把「已经删掉的模型」的旧记录清掉了，这里跟着换一份，
+          // 免得总览还留着那些行
+          if (Array.isArray(body.history)) setHistory(body.history)
           setSelection(body.default || null)
           setConfig(prev => {
             const current = prev || {}
@@ -716,7 +763,39 @@ window.__ModuleLoader__.load({
             return { ...current, provider, model, effort }
           })
         } catch (err) {
-          setError(format(t('pick.error'), { reason: err.message }))
+          setError(format(t('pick.error'), { reason: describeFailure(err) }))
+        }
+      }, [])
+
+      // 用户点了右上角「重新扫描」：真的把宿主里所有 provider 问一遍
+      const rescanCatalog = useCallback(async () => {
+        try {
+          setBusy('rescan')
+          const body = await post('/catalog', {})
+          const providers = Array.isArray(body.providers) ? body.providers : []
+          setCatalog(providers)
+          setScannedAt(body.scanned_at || '')
+          if (Array.isArray(body.history)) setHistory(body.history)
+          setSelection(body.default || null)
+          setConfig(prev => {
+            const current = prev || {}
+            const fallbackProvider = body.default && body.default.provider
+              ? body.default.provider
+              : (providers.find(entry => entry.models.length > 0) || providers[0] || {}).id || ''
+            const provider = providers.some(entry => entry.id === current.provider) ? current.provider : fallbackProvider
+            const pool = (providers.find(entry => entry.id === provider) || {}).models || []
+            const model = pool.some(entry => entry.id === current.model)
+              ? current.model
+              : (body.default && body.default.provider === provider && body.default.model) || (pool[0] || {}).id || ''
+            const effort = typeof current.effort === 'string' ? current.effort : ''
+            return { ...current, provider, model, effort }
+          })
+          const count = providers.reduce((total, entry) => total + (entry.models || []).length, 0)
+          setNotice(format(t('scan.done'), { count: count, at: clock(new Date(body.scanned_at)) }))
+        } catch (err) {
+          setError(format(t('scan.error'), { reason: describeFailure(err) }))
+        } finally {
+          setBusy('')
         }
       }, [])
 
@@ -729,12 +808,6 @@ window.__ModuleLoader__.load({
       const providers = catalog || []
       const providerEntry = providers.find(entry => entry.id === cfg.provider) || null
       const models = providerEntry ? providerEntry.models : []
-      // 历史行用供应商的显示名，取不到就退回 id
-      const providerLabel = (id) => {
-        if (!id) return '—'
-        const hit = providers.find(entry => entry.id === id)
-        return hit && hit.name ? hit.name : id
-      }
 
       // 这次检测的结果本身也当成一条「最新记录」。中途离开再回来时，/state 里的历史
       // 可能还是收尾之前那一刻的（那一条是部分样本、没有概率），而结果区已经算出了
@@ -775,33 +848,21 @@ window.__ModuleLoader__.load({
         return map
       }, [history, liveRow])
 
-      // 总览分组：目录里的所有供应商 × 所有模型；历史里有、目录里没有的另起一组
+      // 总览分组：只铺当前目录里的供应商 × 模型。某个模型从这台 DSH 里删掉之后，
+      // 它连同上一次的结果一起消失——宿主已经把那条历史清了（见 /catalog 的 pruneHistory），
+      // 这里也不再为「历史里有、目录里没有」的行另起一组。
       const groups = useMemo(() => {
         const list = []
-        const known = new Set()
         for (const provider of providers) {
-          const models = ((provider && provider.models) || []).map(model => {
-            const key = `${provider.id}\u0000${model.id}`
-            known.add(key)
-            return {
-              id: model.id,
-              name: model.name || model.name === '' ? model.name : model.id,
-              row: latestByKey.get(key) || null,
-            }
-          })
+          const models = ((provider && provider.models) || []).map(model => ({
+            id: model.id,
+            name: model.name || model.name === '' ? model.name : model.id,
+            row: latestByKey.get(`${provider.id}\u0000${model.id}`) || null,
+          }))
           if (models.length > 0) {
             list.push({ id: provider.id, name: provider.name || provider.id, models })
           }
         }
-        const extras = new Map()
-        for (const [key, row] of latestByKey) {
-          if (known.has(key)) continue
-          if (!extras.has(row.provider)) {
-            extras.set(row.provider, { id: row.provider, name: providerLabel(row.provider), models: [] })
-          }
-          extras.get(row.provider).models.push({ id: row.model, name: row.model, row })
-        }
-        for (const group of extras.values()) list.push(group)
         return list
       }, [providers, latestByKey])
 
@@ -1095,7 +1156,7 @@ window.__ModuleLoader__.load({
           setHistory([])
           setClearedAt(Date.now())
         } catch (err) {
-          setError(format(t('common.error'), { reason: err.message }))
+          setError(format(t('common.error'), { reason: describeFailure(err) }))
         }
       }
 
@@ -1119,8 +1180,16 @@ window.__ModuleLoader__.load({
         h('div', { className: 'mf_scroll' },
           h('div', { className: 'mf_root' },
         h('div', { className: 'mf_head' },
-          h('h2', null, t('title')),
-          h('p', null, t('intro'))),
+          h('div', { className: 'mf_headrow' },
+            h('div', { className: 'mf_headtext' },
+              h('h2', null, t('title')),
+              h('p', null, t('intro'))),
+            h('button', {
+              className: 'mf_btn ghost',
+              disabled: busy === 'rescan',
+              title: t('scan.hint'),
+              onClick: rescanCatalog,
+            }, busy === 'rescan' ? t('scan.running') : t('scan.button')))),
 
         h('div', { className: 'mf_card' },
           h('div', { className: 'mf_row' },
@@ -1143,6 +1212,12 @@ window.__ModuleLoader__.load({
         h('div', { className: 'mf_card' },
           h('h3', null, t('pick.title')),
           h('p', { className: 'mf_sub' }, catalog === null ? t('pick.loading') : t('pick.intro')),
+          catalog !== null && scannedAt
+            ? h('p', { className: 'mf_help', style: { margin: '-6px 0 10px' } },
+                format(t('scan.at'), { time: clock(scannedAt) }),
+                ' · ',
+                t('scan.cached'))
+            : null,
           catalog !== null && providers.length === 0
             ? h('div', { className: 'mf_empty' }, t('pick.empty'))
             : h('div', { className: 'mf_grid' },

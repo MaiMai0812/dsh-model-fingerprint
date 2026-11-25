@@ -18,10 +18,13 @@ import {
   detectorInfo,
   generateChallenges,
   lastJob,
+  pruneHistory,
+  readCatalog,
   readJob,
   readState,
   saveConfig,
   startJob,
+  writeCatalog,
 } from './lib/engine.js'
 import { defaultSelection, listCatalog, modelDetail } from './lib/llm.js'
 
@@ -169,10 +172,30 @@ export function apply(ctx, config = {}) {
         sendJson(res, 200, { ok: true, job: activeJob(), jobs: activeJobs(), last: lastJob() })
       }))
 
-      // 宿主已经接入的 provider 与模型
+      // 宿主已经接入的 provider 与模型。两条路径：
+      //   GET  —— 只回上一次扫到的那份（面板打开时用，几毫秒，不去问宿主）；
+      //   POST —— 真的重新扫一遍（问遍所有 provider，几百毫秒），落盘后回新的那份。
+      // 顺手把「已经不在目录里的模型」的旧记录清掉：总览只该显示这台 DSH 上还剩的
+      // 模型，删掉的模型不该继续占一行。
       register('/catalog', guarded(async (req, res) => {
+        if (req.method !== 'POST') {
+          return sendJson(res, 200, {
+            ok: true,
+            ...readCatalog(),
+            cached: true,
+            history: readState().history,
+          })
+        }
         const catalog = await listCatalog(ctx)
-        sendJson(res, 200, { ok: true, ...catalog })
+        const pruned = await pruneHistory(catalog.providers)
+        const saved = await writeCatalog(catalog)
+        sendJson(res, 200, {
+          ok: true,
+          ...saved,
+          pruned,
+          cached: false,
+          history: readState().history,
+        })
       }))
 
       // 单个模型的推理强度等元信息
